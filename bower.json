@@ -1,0 +1,11 @@
+{
+  "name": "exp-sdk",
+  "authors": [
+    "James Dalessio <james.dalessio@scala.com>"
+  ],
+  "description": "EXP Javascript SDK",
+  "main": "exp-sdk.min.js",
+  "moduleType": [],
+  "license": "MIT",
+  "homepage": ""
+}
