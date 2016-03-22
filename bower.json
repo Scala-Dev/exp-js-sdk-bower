@@ -7,5 +7,6 @@
   "main": "exp-sdk.min.js",
   "moduleType": [],
   "license": "MIT",
-  "homepage": ""
+  "ignore": [],
+  "homepage": "https://goexp.io"
 }
