@@ -44,103 +44,141 @@ var Resource = function () {
   function Resource(document, sdk, context) {
     _classCallCheck(this, Resource);
 
-    this.document = document;
+    this._document = document;
     this._sdk = sdk;
     this._context = context;
   }
 
   _createClass(Resource, [{
+    key: '_getChannelName',
+    value: function _getChannelName() {
+      throw new Error('Not implemented.');
+    }
+  }, {
+    key: '_getResourcePath',
+    value: function _getResourcePath() {
+      throw new Error('Not implemented.');
+    }
+  }, {
     key: 'save',
     value: function save() {
       var _this = this;
 
-      return this._sdk.api.patch(this.constructor.getResourcePath(this.document), this.document).then(function (document) {
-        return _this.document = document;
+      return this._sdk.api.patch(this._getResourcePath(), this.document).then(function (document) {
+        return _this._document = document;
       });
-    }
-  }, {
-    key: 'fling',
-    value: function fling(payload, options, timeout) {
-      return this.getChannel(options).fling(payload, timeout);
     }
   }, {
     key: 'refresh',
     value: function refresh() {
       var _this2 = this;
 
-      return this._sdk.api.get(this.constructor.getResourcePath(this.document)).then(function (document) {
-        return _this2.document = document;
+      return this._sdk.api.get(this._getResourcePath()).then(function (document) {
+        return _this2._document = document;
       });
     }
   }, {
     key: 'getChannel',
     value: function getChannel(options) {
-      return this._sdk.network.getChannel(this.constructor.getChannelName(this.document), options, this._context);
+      return this._sdk.network.getChannel(this._getChannelName(), options, this._context);
     }
   }, {
     key: 'clone',
     value: function clone(context) {
       return new this.constructor(this.document, this._sdk, context || this._context);
     }
+  }, {
+    key: 'document',
+    get: function get() {
+      return this._document || {};
+    }
   }], [{
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
+      throw new Error('Not implemented.');
+    }
+  }, {
     key: 'create',
     value: function create(document, sdk, context) {
       var _this3 = this;
 
-      return sdk.api.post(this.getCollectionPath(document), document).then(function (document) {
+      return sdk.api.post(this._getCollectionPath(), document).then(function (document) {
         return new _this3(document, sdk, context);
-      });
-    }
-  }, {
-    key: 'get',
-    value: function get(uuid, sdk, context) {
-      var _this4 = this;
-
-      if (!uuid) return sdk.authenticator.getAuth().then(function () {
-        return null;
-      });
-      return sdk.api.get(this.getResourcePath({ uuid: uuid })).then(function (document) {
-        return new _this4(document, sdk, context);
-      }).catch(function (error) {
-        if (error && error.status === 404) return null;
-        throw error;
       });
     }
   }, {
     key: 'find',
     value: function find(params, sdk, context) {
-      var _this5 = this;
+      var _this4 = this;
 
-      return sdk.api.get(this.getCollectionPath(), params).then(function (query) {
+      return sdk.api.get(this._getCollectionPath(), params).then(function (query) {
         return query.results.map(function (document) {
-          return new _this5(document, sdk, context);
+          return new _this4(document, sdk, context);
         });
       });
-    }
-  }, {
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
-      return '/api/resources';
-    }
-  }, {
-    key: 'getResourcePath',
-    value: function getResourcePath(document) {
-      return this.getCollectionPath() + '/' + encodeURIComponent(document.uuid);
-    }
-  }, {
-    key: 'getChannelName',
-    value: function getChannelName(document) {
-      return document.uuid;
     }
   }]);
 
   return Resource;
 }();
 
+var CommonResource = function (_Resource) {
+  _inherits(CommonResource, _Resource);
+
+  function CommonResource() {
+    _classCallCheck(this, CommonResource);
+
+    return _possibleConstructorReturn(this, Object.getPrototypeOf(CommonResource).apply(this, arguments));
+  }
+
+  _createClass(CommonResource, [{
+    key: '_getChannelName',
+    value: function _getChannelName() {
+      return this.uuid;
+    }
+  }, {
+    key: '_getResourcePath',
+    value: function _getResourcePath() {
+      return this.constructor._getCollectionPath() + '/' + this.uuid;
+    }
+  }, {
+    key: 'uuid',
+    get: function get() {
+      return this.document.uuid;
+    }
+  }, {
+    key: 'name',
+    get: function get() {
+      return this.document.name;
+    },
+    set: function set(value) {
+      this.document.name = value;
+    }
+  }], [{
+    key: 'get',
+    value: function get(uuid, sdk, context) {
+      var _this6 = this;
+
+      if (!uuid) return sdk.authenticator.getAuth().then(function () {
+        return null;
+      });
+      var path = this._getCollectionPath() + '/' + uuid;
+      return sdk.api.get(path).then(function (document) {
+        return new _this6(document, sdk, context);
+      }).catch(function (error) {
+        if (error && error.status === 404) return null;
+        throw error;
+      });
+    }
+  }]);
+
+  return CommonResource;
+}(Resource);
+
 /* Devices */
 
-var Device = function (_Resource) {
-  _inherits(Device, _Resource);
+var Device = function (_CommonResource) {
+  _inherits(Device, _CommonResource);
 
   function Device() {
     _classCallCheck(this, Device);
@@ -151,48 +189,43 @@ var Device = function (_Resource) {
   _createClass(Device, [{
     key: 'getExperience',
     value: function getExperience() {
-      return this._sdk.api.Experience.get(_.get(this, 'document.experience.uuid'), this._sdk, this.context);
+      return this._sdk.api.Experience.get(_.get(this.document, 'experience.uuid'), this._sdk, this.context);
     }
   }, {
     key: 'getLocation',
     value: function getLocation() {
-      return this._sdk.api.Location.get(_.get(this, 'document.location.uuid'), this._sdk, this.context);
+      return this._sdk.api.Location.get(_.get(this.document, 'location.uuid'), this._sdk, this.context);
     }
   }, {
     key: 'getZones',
     value: function getZones() {
-      var _this7 = this;
+      var _this8 = this;
 
       return this.getLocation().then(function (location) {
         if (!location) return [];
         return location.document.zones.filter(function (locationZoneDocument) {
-          return _this7.document.location.zones.find(function (deviceZoneDocument) {
+          return _this8.document.location.zones.find(function (deviceZoneDocument) {
             return deviceZoneDocument.key === locationZoneDocument.key;
           });
         }).map(function (document) {
-          return new _this7._sdk.api.Zone(document, location, _this7._sdk, _this7._context);
+          return new _this8._sdk.api.Zone(document, location, _this8._sdk, _this8._context);
         });
       });
     }
-  }, {
-    key: 'identify',
-    value: function identify() {
-      return this.getChannel().broadcast('identify', null, 500);
-    }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/devices';
     }
   }]);
 
   return Device;
-}(Resource);
+}(CommonResource);
 
 /* Things */
 
-var Thing = function (_Device) {
-  _inherits(Thing, _Device);
+var Thing = function (_CommonResource2) {
+  _inherits(Thing, _CommonResource2);
 
   function Thing() {
     _classCallCheck(this, Thing);
@@ -200,23 +233,41 @@ var Thing = function (_Device) {
     return _possibleConstructorReturn(this, Object.getPrototypeOf(Thing).apply(this, arguments));
   }
 
-  _createClass(Thing, null, [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+  _createClass(Thing, [{
+    key: 'getLocation',
+    value: function getLocation() {
+      return this._sdk.api.Location.get(_.get(this.document, 'location.uuid'), this._sdk, this.context);
+    }
+  }, {
+    key: 'getZones',
+    value: function getZones() {
+      var _this10 = this;
+
+      return this.getLocation().then(function (location) {
+        if (!location) return [];
+        return location.document.zones.filter(function (locationZoneDocument) {
+          return _this10.document.location.zones.find(function (deviceZoneDocument) {
+            return deviceZoneDocument.key === locationZoneDocument.key;
+          });
+        }).map(function (document) {
+          return new _this10._sdk.api.Zone(document, location, _this10._sdk, _this10._context);
+        });
+      });
+    }
+  }], [{
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/things';
     }
   }]);
 
   return Thing;
-}(Device);
-
-Thing.identify = undefined;
-Thing.getExperience = undefined;
+}(CommonResource);
 
 /* Experiences */
 
-var Experience = function (_Resource2) {
-  _inherits(Experience, _Resource2);
+var Experience = function (_CommonResource3) {
+  _inherits(Experience, _CommonResource3);
 
   function Experience() {
     _classCallCheck(this, Experience);
@@ -227,22 +278,22 @@ var Experience = function (_Resource2) {
   _createClass(Experience, [{
     key: 'getDevices',
     value: function getDevices() {
-      return this._sdk.api.Device.find({ 'experience.uuid': this.document.uuid }, this._sdk, this._context);
+      return this._sdk.api.Device.find({ 'experience.uuid': this.uuid }, this._sdk, this._context);
     }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/experiences';
     }
   }]);
 
   return Experience;
-}(Resource);
+}(CommonResource);
 
 /* Locations */
 
-var Location = function (_Resource3) {
-  _inherits(Location, _Resource3);
+var Location = function (_CommonResource4) {
+  _inherits(Location, _CommonResource4);
 
   function Location() {
     _classCallCheck(this, Location);
@@ -253,48 +304,52 @@ var Location = function (_Resource3) {
   _createClass(Location, [{
     key: 'getDevices',
     value: function getDevices() {
-      return this._sdk.api.Device.find({ 'location.uuid': this.document.uuid }, this._sdk, this._context);
+      return this._sdk.api.Device.find({ 'location.uuid': this.uuid }, this._sdk, this._context);
     }
   }, {
     key: 'getThings',
     value: function getThings() {
-      return this._sdk.api.Thing.find({ 'location.uuid': this.document.uuid }, this._sdk, this._context);
+      return this._sdk.api.Thing.find({ 'location.uuid': this.uuid }, this._sdk, this._context);
     }
   }, {
     key: 'getZones',
     value: function getZones() {
-      var _this11 = this;
+      var _this13 = this;
 
-      if (!this.document.zones) return Promise.resolve([]);
-      return Promise.resolve(this.document.zones.map(function (document) {
-        return new _this11._sdk.api.Zone(document, _this11, _this11._sdk, _this11._context);
-      }));
+      if (!this.document.zones) return Promise.resolve().then(function () {
+        return [];
+      });
+      return Promise.resolve().then(function () {
+        return _this13.document.zones.map(function (document) {
+          return new _this13._sdk.api.Zone(document, _this13, _this13._sdk, _this13._context);
+        });
+      });
     }
   }, {
     key: 'getLayoutUrl',
     value: function getLayoutUrl() {
-      return this.constructor.getResourcePath(this.document) + '/layout?_rt=' + this._sdk.authenticator.getAuthSync().restrictedToken;
+      return this._getResourcePath() + '/layout?_rt=' + this._sdk.authenticator.getAuthSync().restrictedToken;
     }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/locations';
     }
   }]);
 
   return Location;
-}(Resource);
+}(CommonResource);
 
-var Zone = function (_Resource4) {
-  _inherits(Zone, _Resource4);
+var Zone = function (_Resource2) {
+  _inherits(Zone, _Resource2);
 
   function Zone(document, location, sdk, context) {
     _classCallCheck(this, Zone);
 
-    var _this12 = _possibleConstructorReturn(this, Object.getPrototypeOf(Zone).call(this, document, sdk, context));
+    var _this14 = _possibleConstructorReturn(this, Object.getPrototypeOf(Zone).call(this, document, sdk, context));
 
-    _this12._location = location;
-    return _this12;
+    _this14._location = location;
+    return _this14;
   }
 
   _createClass(Zone, [{
@@ -305,12 +360,11 @@ var Zone = function (_Resource4) {
   }, {
     key: 'refresh',
     value: function refresh() {
-      var _this13 = this;
+      var _this15 = this;
 
       return this._location.refresh().then(function () {
-        var key = _this13.document.key;
-        _this13.document = (_this13._location.document.zones || []).find(function (document) {
-          return document.key === key;
+        _this15._document = (_this15._location.document.zones || []).find(function (document) {
+          return document.key === _this15.key;
         });
       });
     }
@@ -322,7 +376,7 @@ var Zone = function (_Resource4) {
   }, {
     key: 'getDevices',
     value: function getDevices() {
-      return this._sdk.api.Device.find({ 'location.uuid': this._location.document.uuid, 'location.zones.key': this.document.key }, this._sdk, this._context);
+      return this._sdk.api.Device.find({ 'location.uuid': this._location.uuid, 'location.zones.key': this.key }, this._sdk, this._context);
     }
   }, {
     key: 'getThings',
@@ -332,20 +386,33 @@ var Zone = function (_Resource4) {
   }, {
     key: '_getChannelName',
     value: function _getChannelName() {
-      return this._location.document.uuid + ':zone:' + this.document.key;
+      return this._location.uuid + ':zone:' + this.key;
     }
   }, {
     key: 'clone',
     value: function clone(context) {
-      return new this.constructor(this.document, this._location, this._exists, this._sdk, context);
+      return new this.constructor(this.document, this._location, this._sdk, context);
+    }
+  }, {
+    key: 'key',
+    get: function get() {
+      return this.document.key;
+    }
+  }, {
+    key: 'name',
+    get: function get() {
+      return this.document.name;
+    },
+    set: function set(value) {
+      this.document.name = value;
     }
   }]);
 
   return Zone;
 }(Resource);
 
-var Feed = function (_Resource5) {
-  _inherits(Feed, _Resource5);
+var Feed = function (_CommonResource5) {
+  _inherits(Feed, _CommonResource5);
 
   function Feed() {
     _classCallCheck(this, Feed);
@@ -356,20 +423,20 @@ var Feed = function (_Resource5) {
   _createClass(Feed, [{
     key: 'getData',
     value: function getData() {
-      return this._sdk.api.get(this.constructor.getResourcePath(this.document) + '/data');
+      return this._sdk.api.get(this._getResourcePath() + '/data');
     }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/connectors/feeds';
     }
   }]);
 
   return Feed;
-}(Resource);
+}(CommonResource);
 
-var Data = function (_Resource6) {
-  _inherits(Data, _Resource6);
+var Data = function (_Resource3) {
+  _inherits(Data, _Resource3);
 
   function Data() {
     _classCallCheck(this, Data);
@@ -378,14 +445,35 @@ var Data = function (_Resource6) {
   }
 
   _createClass(Data, [{
-    key: 'save',
-    value: function save() {
-      return this._sdk.api.put(this.constructor.getResourcePath(this.document), this.document.value);
+    key: '_getResourcePath',
+    value: function _getResourcePath() {
+      return this.constructor._getCollectionPath() + '/' + encodeURIComponent(this.group) + '/' + encodeURIComponent(this.key);
     }
   }, {
-    key: 'getChannelName',
-    value: function getChannelName() {
-      return 'data' + ':' + this.document.key + ':' + this.document.group;
+    key: 'save',
+    value: function save() {
+      return this._sdk.api.put(this._getResourcePath(), this.value);
+    }
+  }, {
+    key: '_getChannelName',
+    value: function _getChannelName() {
+      return 'data' + ':' + this.key + ':' + this.group;
+    }
+  }, {
+    key: 'group',
+    get: function get() {
+      return this.document.group;
+    },
+    set: function set(value) {
+      this.document.group = value;
+    }
+  }, {
+    key: 'key',
+    get: function get() {
+      return this.document.key;
+    },
+    set: function set(value) {
+      this.document.key = value;
     }
   }, {
     key: 'value',
@@ -396,39 +484,34 @@ var Data = function (_Resource6) {
       this.document.value = value;
     }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/data';
     }
   }, {
-    key: 'getResourcePath',
-    value: function getResourcePath(document) {
-      return this.getCollectionPath() + '/' + encodeURIComponent(document.group) + '/' + encodeURIComponent(document.key);
-    }
-  }, {
     key: 'get',
-    value: function get(key, group, sdk, context) {
-      var _this16 = this;
+    value: function get(group, key, sdk, context) {
+      var _this18 = this;
 
-      group = group || 'default';
-      if (!key) return Promise.resolve(new this({ key: key, group: group, value: null }));
-      return sdk.api.get(this.getResourcePath({ key: key, group: group })).then(function (document) {
-        return new _this16(document, sdk, context);
+      if (!group || !key) return Promise.resolve(null);
+      var path = this._getCollectionPath() + '/' + encodeURIComponent(group) + '/' + encodeURIComponent(key);
+      return sdk.api.get(path).then(function (document) {
+        return new _this18(document, sdk, context);
       }).catch(function (error) {
-        if (error && error.status === 404) return new _this16({ key: key, group: group, value: null }, sdk, context);
+        if (error && error.status === 404) return null;
         throw error;
       });
     }
   }, {
     key: 'create',
-    value: function create(key, group, value, sdk, context) {
+    value: function create(group, key, value, sdk, context) {
+      var _this19 = this;
+
       if (!key) throw new Error('Please specify a key.');
-      if (!value) {
-        value = group;group = 'default';
-      }
-      var data = new this({ key: key, group: group, value: value }, sdk, context);
-      return data.save(function () {
-        return data;
+      if (!group) throw new Error('Please specify a group');
+      var path = this._getCollectionPath() + '/' + encodeURIComponent(group) + '/' + encodeURIComponent(key);
+      return sdk.api.put(path, value).then(function (document) {
+        return new _this19(document, sdk, context);
       });
     }
   }]);
@@ -436,8 +519,8 @@ var Data = function (_Resource6) {
   return Data;
 }(Resource);
 
-var Content = function (_Resource7) {
-  _inherits(Content, _Resource7);
+var Content = function (_CommonResource6) {
+  _inherits(Content, _CommonResource6);
 
   function Content() {
     _classCallCheck(this, Content);
@@ -448,30 +531,24 @@ var Content = function (_Resource7) {
   _createClass(Content, [{
     key: 'getChildren',
     value: function getChildren() {
-      return this._sdk.api.Content.find({ parent: this.document.uuid }, this._sdk, this._context);
+      return this._sdk.api.Content.find({ parent: this.uuid }, this._sdk, this._context);
     }
   }, {
     key: 'getUrl',
     value: function getUrl() {
       var auth = this._sdk.authenticator.getAuthSync();
       if (this.subtype === 'scala:content:file') {
-        return auth.api.host + '/api/delivery' + Content.encodePath(this.document.path) + '?_rt=' + auth.restrictedToken;
+        return auth.api.host + '/api/delivery' + Content._encodePath(this.document.path) + '?_rt=' + auth.restrictedToken;
       } else if (this.subtype === 'scala:content:app') {
-        return auth.config.api.host + '/api/delivery' + Content.encodePath(this.document.path) + '/index.html?_rt=' + auth.restrictedToken;
+        return auth.api.host + '/api/delivery' + Content._encodePath(this.document.path) + '/index.html?_rt=' + auth.restrictedToken;
       } else if (this.subtype === 'scala:content:url') {
         return this.document.url;
       }
-      throw new Error('Content item does not have a url.');
     }
   }, {
     key: 'getVariantUrl',
     value: function getVariantUrl(name) {
-      var auth = this._sdk.authenticator.getAuthSync();
-      if (this.subtype === 'scala:content:file' && this.hasVariant(name)) {
-        var query = '?variant=' + encodeURIComponent(name) + '&_rt=' + auth.restrictedToken;
-        return auth.api.host + '/api/delivery' + Content.encodePath(this.document.path) + query;
-      }
-      throw new Error('Variant does not exist.');
+      return this.getUrl() + '&variant=' + name;
     }
   }, {
     key: 'hasVariant',
@@ -486,19 +563,19 @@ var Content = function (_Resource7) {
       return this.document.subtype;
     }
   }], [{
-    key: 'getCollectionPath',
-    value: function getCollectionPath() {
+    key: '_getCollectionPath',
+    value: function _getCollectionPath() {
       return '/api/content';
     }
   }, {
-    key: 'encodePath',
-    value: function encodePath(value) {
+    key: '_encodePath',
+    value: function _encodePath(value) {
       return encodeURI(value).replace('!', '%21').replace('#', '%23').replace('$', '%24').replace('&', '%26').replace('\'', '%27').replace('(', '%28').replace(')', '%29').replace(',', '%2C').replace(':', '%3A').replace(';', '%3B').replace('=', '%3D').replace('?', '%3F').replace('~', '%7E');
     }
   }]);
 
   return Content;
-}(Resource);
+}(CommonResource);
 
 var ApiError = function (_Error) {
   _inherits(ApiError, _Error);
@@ -506,12 +583,12 @@ var ApiError = function (_Error) {
   function ApiError(message, code, status) {
     _classCallCheck(this, ApiError);
 
-    var _this18 = _possibleConstructorReturn(this, Object.getPrototypeOf(ApiError).call(this, message));
+    var _this21 = _possibleConstructorReturn(this, Object.getPrototypeOf(ApiError).call(this, message));
 
-    _this18.message = message;
-    _this18.code = code || null;
-    _this18.status = status || null;
-    return _this18;
+    _this21.message = message;
+    _this21.code = code || null;
+    _this21.status = status || null;
+    return _this21;
   }
 
   return ApiError;
@@ -1044,8 +1121,8 @@ var EXP = function () {
 
   }, {
     key: 'getData',
-    value: function getData(key, group) {
-      return this._sdk.api.Data.get(key, group, this._sdk, this._context);
+    value: function getData(group, key) {
+      return this._sdk.api.Data.get(group, key, this._sdk, this._context);
     }
   }, {
     key: 'findData',
@@ -1054,8 +1131,8 @@ var EXP = function () {
     }
   }, {
     key: 'createData',
-    value: function createData(key, group, value) {
-      return this._sdk.api.Data.create(key, group, value, this._sdk, this._context);
+    value: function createData(group, key, value) {
+      return this._sdk.api.Data.create(group, key, value, this._sdk, this._context);
     }
   }, {
     key: '_sdk',
