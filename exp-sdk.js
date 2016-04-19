@@ -822,11 +822,11 @@ var Authenticator = function () {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + this.auth.token
+          'Authorization': 'Bearer ' + this._lastAuth.token
         }
       }).then(function (response) {
         if (response.status === 401) _this4._login();else if (!response.ok) throw new Error();else return response.json().then(function (auth) {
-          return _this4._update(auth);
+          return _this4._onSuccess(auth);
         });
       }).catch(function (error) {
         _this4._onError(error);
@@ -945,7 +945,9 @@ var EXP = function () {
   function EXP(sdk, context) {
     _classCallCheck(this, EXP);
 
-    this.__sdk = sdk;this._context = context || Math.random().toString();
+    this.__sdk = sdk;
+    this._context = context || Math.random().toString();
+    this.EventNode = EventNode;
   }
 
   _createClass(EXP, [{
@@ -965,11 +967,10 @@ var EXP = function () {
     value: function on(name, callback) {
       return this._sdk.events.on(name, callback, this._context);
     }
-
-    /* Undocumented Memory Management */
-
   }, {
     key: 'clone',
+
+    /* Undocumented Memory Management */
     value: function clone(context) {
       return new this.constructor(this._sdk, context);
     }
@@ -1140,6 +1141,11 @@ var EXP = function () {
       if (!this.__sdk) throw new Error('SDK was stopped.');return this.__sdk;
     }
   }, {
+    key: 'auth',
+    get: function get() {
+      return this._sdk.authenticator.getAuthSync();
+    }
+  }, {
     key: 'isConnected',
     get: function get() {
       return this._sdk.network.isConnected;
@@ -1153,6 +1159,16 @@ var EXP = function () {
     key: 'stop',
     value: function stop() {
       return SDK.stop();
+    }
+  }, {
+    key: 'clear',
+    value: function clear(context) {
+      return this.EventNode.clear(context);
+    }
+  }, {
+    key: 'EventNode',
+    get: function get() {
+      return EventNode;
     }
   }]);
 
