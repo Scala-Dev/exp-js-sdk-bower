@@ -112,9 +112,11 @@ var Resource = function () {
       var _this4 = this;
 
       return sdk.api.get(this._getCollectionPath(), params).then(function (query) {
-        return query.results.map(function (document) {
+        var results = query.results.map(function (document) {
           return new _this4(document, sdk, context);
         });
+        results.total = query.total;
+        return results;
       });
     }
   }]);
@@ -202,14 +204,20 @@ var Device = function (_CommonResource) {
       var _this8 = this;
 
       return this.getLocation().then(function (location) {
-        if (!location) return [];
-        return location.document.zones.filter(function (locationZoneDocument) {
+        if (!location) {
+          var empty = [];
+          empty.total = 0;
+          return empty;
+        }
+        var zones = location.document.zones.filter(function (locationZoneDocument) {
           return _this8.document.location.zones.find(function (deviceZoneDocument) {
             return deviceZoneDocument.key === locationZoneDocument.key;
           });
         }).map(function (document) {
           return new _this8._sdk.api.Zone(document, location, _this8._sdk, _this8._context);
         });
+        zones.total = zones.length;
+        return zones;
       });
     }
   }], [{
@@ -253,14 +261,21 @@ var Thing = function (_CommonResource2) {
       var _this11 = this;
 
       return this.getLocation().then(function (location) {
-        if (!location) return [];
-        return location.document.zones.filter(function (locationZoneDocument) {
+        if (!location) {
+          var empty = [];
+          empty.total = 0;
+          return empty;
+        }
+
+        var zones = location.document.zones.filter(function (locationZoneDocument) {
           return _this11.document.location.zones.find(function (deviceZoneDocument) {
             return deviceZoneDocument.key === locationZoneDocument.key;
           });
         }).map(function (document) {
           return new _this11._sdk.api.Zone(document, location, _this11._sdk, _this11._context);
         });
+        zones.total = zones.length;
+        return zones;
       });
     }
   }], [{
@@ -286,8 +301,10 @@ var Experience = function (_CommonResource3) {
 
   _createClass(Experience, [{
     key: 'getDevices',
-    value: function getDevices() {
-      return this._sdk.api.Device.find({ 'experience.uuid': this.uuid }, this._sdk, this._context);
+    value: function getDevices(params) {
+      params = params || {};
+      params['experience.uuid'] = this.uuid;
+      return this._sdk.api.Device.find(params, this._sdk, this._context);
     }
   }], [{
     key: '_getCollectionPath',
@@ -322,13 +339,17 @@ var Location = function (_CommonResource4) {
 
   _createClass(Location, [{
     key: 'getDevices',
-    value: function getDevices() {
-      return this._sdk.api.Device.find({ 'location.uuid': this.uuid }, this._sdk, this._context);
+    value: function getDevices(params) {
+      params = params || {};
+      params['location.uuid'] = this.uuid;
+      return this._sdk.api.Device.find(params, this._sdk, this._context);
     }
   }, {
     key: 'getThings',
-    value: function getThings() {
-      return this._sdk.api.Thing.find({ 'location.uuid': this.uuid }, this._sdk, this._context);
+    value: function getThings(params) {
+      params = params || {};
+      params['location.uuid'] = this.uuid;
+      return this._sdk.api.Thing.find(params, this._sdk, this._context);
     }
   }, {
     key: 'getZones',
@@ -336,12 +357,16 @@ var Location = function (_CommonResource4) {
       var _this15 = this;
 
       if (!this.document.zones) return Promise.resolve().then(function () {
-        return [];
+        var empty = [];
+        empty.length = 0;
+        return empty;
       });
       return Promise.resolve().then(function () {
-        return _this15.document.zones.map(function (document) {
+        var zones = _this15.document.zones.map(function (document) {
           return new _this15._sdk.api.Zone(document, _this15, _this15._sdk, _this15._context);
         });
+        zones.total = zones.length;
+        return zones;
       });
     }
   }, {
@@ -404,13 +429,19 @@ var Zone = function (_Resource2) {
     }
   }, {
     key: 'getDevices',
-    value: function getDevices() {
-      return this._sdk.api.Device.find({ 'location.uuid': this._location.uuid, 'location.zones.key': this.key }, this._sdk, this._context);
+    value: function getDevices(params) {
+      params = params || {};
+      params['location.uuid'] = this._location.uuid;
+      params['location.zones.key'] = this.key;
+      return this._sdk.api.Device.find(params, this._sdk, this._context);
     }
   }, {
     key: 'getThings',
-    value: function getThings() {
-      return this._sdk.api.Thing.find({ 'location.uuid': this._location.document.uuid, 'location.zones.key': this.document.key }, this._sdk, this._context);
+    value: function getThings(params) {
+      params = params || {};
+      params['location.uuid'] = this._location.uuid;
+      params['location.zones.key'] = this.key;
+      return this._sdk.api.Thing.find(params, this._sdk, this._context);
     }
   }, {
     key: '_getChannelName',
@@ -567,8 +598,10 @@ var Content = function (_CommonResource6) {
 
   _createClass(Content, [{
     key: 'getChildren',
-    value: function getChildren() {
-      return this._sdk.api.Content.find({ parent: this.uuid }, this._sdk, this._context);
+    value: function getChildren(params) {
+      params = params || {};
+      params['parent'] = this.uuid;
+      return this._sdk.api.Content.find(params, this._sdk, this._context);
     }
   }, {
     key: 'getUrl',
@@ -649,17 +682,27 @@ var Api = function () {
   _createClass(Api, [{
     key: 'fetch',
     value: function fetch(path, params, options) {
-      options = options || {};
-      if (params) path += this.encodeQueryString(params);
-      if (_typeof(options.body) === 'object' && options.headers && options.headers['Content-Type'] === 'application/json') options.body = JSON.stringify(options.body);
+      var _this25 = this;
 
+      // Wait for auth.
+      // On 401, notify Auth and try again.
+
+      options = options || {};
+      var fullPath = path;
+      if (params) fullPath += this.encodeQueryString(params);
+      if (_typeof(options.body) === 'object' && options.headers && options.headers['Content-Type'] === 'application/json') options.body = JSON.stringify(options.body);
       return this._sdk.authenticator.getAuth().then(function (auth) {
+        if (auth.identity.isPairing) throw new Error('Cannot send request when in pairing mode.');
         options.cors = true;
         options.credentials = 'include';
         options.headers = options.headers || {};
         options.headers.Authorization = 'Bearer ' + auth.token;
         options.headers.Accept = 'application/json';
-        return _fetch(auth.api.host + path, options).then(function (response) {
+        return _fetch(auth.api.host + fullPath, options).then(function (response) {
+          if (response && !response.ok && response.status === 401) {
+            _this25._sdk.authenticator._refresh(); // TODO: Make this method public? Should authenticator handle all requests?
+            return _this25.fetch(path, params, options);
+          }
           if (options.method === 'DELETE') return Promise.resolve();
           return response.json().then(function (body) {
             if (!response.ok) {
@@ -752,12 +795,20 @@ var Authenticator = function () {
     this._reject = null;
     this._reset();
     this._lastAuth = null;
+    this._id = Math.random();
   }
 
   _createClass(Authenticator, [{
     key: 'start',
     value: function start() {
-      this._login();
+      var _this = this;
+
+      if (this._sdk.options.auth) {
+        this._reset();
+        setTimeout(function () {
+          return _this._onSuccess(_this._sdk.options.auth);
+        });
+      } else this._login();
       return this._promise;
     }
   }, {
@@ -784,11 +835,11 @@ var Authenticator = function () {
   }, {
     key: '_onSuccess',
     value: function _onSuccess(auth) {
-      var _this = this;
+      var _this2 = this;
 
       this._reset();
       this._timeout = setTimeout(function () {
-        return _this._refresh();
+        return _this2._refresh();
       }, (auth.expiration - Date.now()) / 2);
       this._auth = auth;
       this._resolve(auth);
@@ -797,14 +848,14 @@ var Authenticator = function () {
   }, {
     key: '_reset',
     value: function _reset() {
-      var _this2 = this;
+      var _this3 = this;
 
       clearTimeout(this._timeout);
       if (!this._auth && this._promise) return;
       this._lastAuth = this._auth;
       this._auth = null;
       this._promise = new Promise(function (resolve, reject) {
-        _this2._resolve = resolve;_this2._reject = reject;
+        _this3._resolve = resolve;_this3._reject = reject;
       });
     }
   }, {
@@ -823,7 +874,7 @@ var Authenticator = function () {
   }, {
     key: '_login',
     value: function _login() {
-      var _this3 = this;
+      var _this4 = this;
 
       this._reset();
       var options = this._sdk.options;
@@ -834,26 +885,28 @@ var Authenticator = function () {
         payload = { token: jwt.sign({ type: 'device', uuid: options.uuid, allowPairing: options.allowPairing }, options.secret || '_') };
       } else if (options.type === 'consumerApp') {
         payload = { token: jwt.sign({ type: 'consumerApp', uuid: options.uuid }, options.apiKey) };
+      } else if (options.type === 'direct') {
+        return this._onFatal(new Error('Authentication payload is no longer valid and no credentials available to login again.'));
       }
       fetch(options.host + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       }).then(function (response) {
-        if (response.status === 401) _this3._onFatal(new Error('Authentication failed. Please check your credentials.'));else if (!response.ok) throw new Error();else return response.json().then(function (auth) {
-          return _this3._onSuccess(auth);
+        if (response.status === 401) _this4._onFatal(new Error('Authentication failed. Please check your credentials.'));else if (!response.ok) throw new Error();else return response.json().then(function (auth) {
+          return _this4._onSuccess(auth);
         });
       }).catch(function (error) {
-        _this3._onError(error);
-        _this3._timeout = setTimeout(function () {
-          return _this3._login();
+        _this4._onError(error);
+        _this4._timeout = setTimeout(function () {
+          return _this4._login();
         }, 5000);
       });
     }
   }, {
     key: '_refresh',
     value: function _refresh() {
-      var _this4 = this;
+      var _this5 = this;
 
       this._reset();
       fetch(this._sdk.options.host + '/api/auth/token', {
@@ -863,13 +916,13 @@ var Authenticator = function () {
           'Authorization': 'Bearer ' + this._lastAuth.token
         }
       }).then(function (response) {
-        if (response.status === 401) _this4._login();else if (!response.ok) throw new Error();else return response.json().then(function (auth) {
-          return _this4._onSuccess(auth);
+        if (response.status === 401) _this5._login();else if (!response.ok) throw new Error();else return response.json().then(function (auth) {
+          return _this5._onSuccess(auth);
         });
       }).catch(function (error) {
-        _this4._onError(error);
-        _this4._timeout = setTimeout(function () {
-          return _this4._refresh();
+        _this5._onError(error);
+        _this5._timeout = setTimeout(function () {
+          return _this5._refresh();
         }, 5000);
       });
     }
@@ -967,6 +1020,9 @@ var SDK = function () {
         options.type = 'consumerApp';
         if (!options.uuid) throw new Error('Please specify the uuid.');
         if (!options.apiKey) throw new Error('Please specify the apiKey');
+      } else if (options.type === 'direct' || options.auth) {
+        options.type = 'direct';
+        if (!options.auth) throw new Error('Please specifiy an auth response payload.');
       } else {
         throw new Error('Please specify authentication type.');
       }
@@ -1324,13 +1380,14 @@ var Channel = function () {
           }).then(function (response) {
             return _this3._network.respond(message.id, message.channel, response);
           });
-        });
+        }, message);
       }, context);
     }
   }, {
     key: 'receive',
     value: function receive(message) {
       this._events.trigger(message.name, message.payload, message);
+      this._events.trigger('9fecccbc-78a9-4b58-9313-04e5edd923fe', message.payload, message);
     }
   }, {
     key: 'hasListeners',
@@ -1367,6 +1424,10 @@ var ChannelDelegate = function () {
     value: function listen(name, callback) {
       var _this5 = this;
 
+      if (!callback) {
+        callback = name;
+        name = '9fecccbc-78a9-4b58-9313-04e5edd923fe';
+      }
       return this._generateId().then(function (id) {
         return _this5._sdk.network.listen(name, id, callback, _this5._context);
       });
