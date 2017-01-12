@@ -7160,7 +7160,7 @@ var EventNode = function () {
     value: function on(name, callback, context) {
       var _this = this;
 
-      nodes[this.id] = this;
+      nodes[this._id] = this;
       var id = Math.random();
       if (!this._listeners[name]) this._listeners[name] = {};
       this._listeners[name][id] = new Listener(callback, context, function () {
@@ -7219,7 +7219,7 @@ var EventNode = function () {
   }, {
     key: '_pruneNode',
     value: function _pruneNode() {
-      if (Object.keys(this._listeners).length === 0) delete nodes[this.id];
+      if (Object.keys(this._listeners).length === 0) delete nodes[this._id];
     }
   }, {
     key: '_cancelListener',
