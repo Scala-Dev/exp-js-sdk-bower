@@ -388,7 +388,7 @@ var Location = function (_CommonResource4) {
   }, {
     key: 'getLayoutUrl',
     value: function getLayoutUrl() {
-      return this._getResourcePath() + '/layout?_rt=' + this._sdk.authenticator.getAuthSync().restrictedToken;
+      return this._getResourcePath() + '/layout';
     }
   }], [{
     key: '_getCollectionPath',
@@ -637,9 +637,9 @@ var Content = function (_CommonResource6) {
     value: function getUrl() {
       var auth = this._sdk.authenticator.getAuthSync();
       if (this.subtype === 'scala:content:file') {
-        return auth.api.host + '/api/delivery' + Content._encodePath(this.document.path) + '?_rt=' + auth.restrictedToken;
+        return this._sdk.options.host + '/api/delivery' + Content._encodePath(this.document.path);
       } else if (this.subtype === 'scala:content:app') {
-        return auth.api.host + '/api/delivery' + Content._encodePath(this.document.path) + '/index.html?_rt=' + auth.restrictedToken;
+        return this._sdk.options.host + '/api/delivery' + Content._encodePath(this.document.path) + '/index.html';
       } else if (this.subtype === 'scala:content:url') {
         return this.document.url;
       }
@@ -647,7 +647,7 @@ var Content = function (_CommonResource6) {
   }, {
     key: 'getVariantUrl',
     value: function getVariantUrl(name) {
-      return this.getUrl() + '&variant=' + name;
+      return this.getUrl() + '?variant=' + name;
     }
   }, {
     key: 'hasVariant',
@@ -737,7 +737,7 @@ var Api = function () {
         options.headers = options.headers || {};
         options.headers.Authorization = 'Bearer ' + auth.token;
         options.headers.Accept = 'application/json';
-        return _fetch(auth.api.host + fullPath, options).then(function (response) {
+        return _fetch(_this25._sdk.options.host + fullPath, options).then(function (response) {
           if (response && !response.ok && response.status === 401) {
             _this25._sdk.authenticator._refresh(); // TODO: Make this method public? Should authenticator handle all requests?
             return _this25.fetch(path, params, options);
@@ -883,6 +883,7 @@ var Authenticator = function () {
         return _this2._refresh();
       }, (auth.expiration - Date.now()) / 2);
       this._auth = auth;
+      this._lastAuth = auth;
       this._resolve(auth);
       this._sdk.events.trigger('update', auth);
     }
@@ -965,7 +966,6 @@ var Authenticator = function () {
     value: function _refresh() {
       var _this5 = this;
 
-      this._reset();
       fetch(this._sdk.options.host + '/api/auth/token', {
         method: 'POST',
         headers: {
@@ -977,10 +977,9 @@ var Authenticator = function () {
           return _this5._onSuccess(auth);
         });
       }).catch(function (error) {
-        _this5._onError(error);
         _this5._timeout = setTimeout(function () {
           return _this5._refresh();
-        }, 5000);
+        }, 60000);
       });
     }
   }]);
@@ -1017,7 +1016,7 @@ var Authenticator = require('./Authenticator');
 var API = require('./API');
 var Network = require('./Network');
 
-var defaults = { host: 'https://api.goexp.io', enableNetwork: true };
+var defaults = { enableNetwork: true };
 
 var SDK = function () {
   function SDK(options) {
@@ -1083,6 +1082,7 @@ var SDK = function () {
       } else {
         throw new Error('Please specify authentication type.');
       }
+      if (!options.host) throw new Error('Please specify a host.');
       return options;
     }
   }]);
@@ -1588,7 +1588,7 @@ var Network = function () {
       this._disconnect();
       if (!this._status) return;
       if (!this._sdk.options.enableNetwork) return;
-      var socket = io(auth.network.host, {
+      var socket = io(this._sdk.options.host, {
         forceNew: true,
         reconnection: true,
         reconnectionDelay: 1000,
